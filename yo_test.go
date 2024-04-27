@@ -179,7 +179,7 @@ func TestModel_Apply(t *testing.T) {
 			defer cleanup()
 
 			m := NewModel(tt.fields.model,
-				WithSpannerClientOption[*user.User](*spannerClient),
+				WithSpannerClientOption[*user.User](spannerClient),
 			)
 
 			before, after := tt.mutType.Hooks()

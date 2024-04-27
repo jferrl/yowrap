@@ -24,9 +24,9 @@ type Yoable[Y any] interface {
 type Opt[T Yoable[T]] func(*Model[T])
 
 // WithSpannerClientOption returns an Opt that sets the spanner client.
-func WithSpannerClientOption[T Yoable[T]](c spanner.Client) Opt[T] {
+func WithSpannerClientOption[T Yoable[T]](c *spanner.Client) Opt[T] {
 	return func(m *Model[T]) {
-		m.Client = c
+		m.Client = *c
 	}
 }
 
