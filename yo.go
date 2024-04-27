@@ -31,7 +31,7 @@ func WithSpannerClientOption[T Yo](c spanner.Client) Opt[T] {
 }
 
 // Model is a struct that embeds the generated model and implements the
-// YoModel interface.
+// Yo interface.
 type Model[T Yo] struct {
 	Yo
 	spanner.Client
@@ -52,12 +52,13 @@ func NewModel[T Yo](m T, opts ...Opt[T]) *Model[T] {
 	return mo
 }
 
-// On registers an action to be executed before or after a method.
+// On registers a hook function to be executed during a transaction.
 func (m *Model[T]) On(h Hook, f HookFunc[T]) {
 	m.hooks[h] = f
 }
 
-// Apply executes the mutation against the database.
+// Apply executes a kind of mutation against the database.
+// It executes the before hook, the mutation and the after hook.
 func (m *Model[T]) Apply(ctx context.Context, mtype Mutation) (time.Time, error) {
 	return m.Client.ReadWriteTransaction(ctx, func(ctx context.Context, rwt *spanner.ReadWriteTransaction) error {
 		before, after := mtype.Hooks()
