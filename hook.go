@@ -20,6 +20,6 @@ const (
 	Delete
 )
 
-// HookFunc is a function that is executed before or after a method.
-// It returns a slice of mutations to be applied.
+// HookFunc is a trigger function associated with a kind of mutation.
+// It executed to generate the mutations to be applied.
 type HookFunc func(context.Context) []*spanner.Mutation

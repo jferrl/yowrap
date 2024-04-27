@@ -25,7 +25,7 @@ type YoModel interface {
 type Opt[T YoModel] func(*Model[T])
 
 // WithSpannerClientOption returns an Opt that sets the spanner client.
-func WithSpannerClientOption[T YoModel](c *spanner.Client) Opt[T] {
+func WithSpannerClientOption[T YoModel](c spanner.Client) Opt[T] {
 	return func(m *Model[T]) {
 		m.Client = c
 	}
@@ -35,7 +35,7 @@ func WithSpannerClientOption[T YoModel](c *spanner.Client) Opt[T] {
 // YoModel interface.
 type Model[T YoModel] struct {
 	YoModel
-	*spanner.Client
+	spanner.Client
 
 	hooks map[Hook][]HookFunc
 }
@@ -79,10 +79,6 @@ func (m *Model[T]) ApplyDelete(ctx context.Context) (time.Time, error) {
 }
 
 func (m *Model[T]) readWriteTxn(ctx context.Context, h Hook) (time.Time, error) {
-	if m.Client == nil {
-		return time.Time{}, ErrNoClient
-	}
-
 	return m.Client.ReadWriteTransaction(ctx, func(ctx context.Context, rwt *spanner.ReadWriteTransaction) error {
 		var mutations []*spanner.Mutation
 

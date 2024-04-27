@@ -4,6 +4,7 @@ go 1.22.0
 
 require (
 	cloud.google.com/go/spanner v1.60.0
+	github.com/google/uuid v1.6.0
 	github.com/googleapis/gax-go/v2 v2.12.2
 	google.golang.org/grpc v1.62.1
 )
