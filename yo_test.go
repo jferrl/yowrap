@@ -107,6 +107,24 @@ func TestModel_Apply(t *testing.T) {
 			wantErr: true,
 		},
 		{
+			name:    "before insert hook returns an error",
+			fields:  fields{model: model},
+			mutType: Insert,
+			before: func(_ context.Context, m *Model[*user.User], _ *spanner.ReadWriteTransaction) error {
+				return errors.New("before insert hook error")
+			},
+			wantErr: true,
+		},
+		{
+			name:    "after insert hook returns an error",
+			fields:  fields{model: model},
+			mutType: Insert,
+			after: func(_ context.Context, m *Model[*user.User], _ *spanner.ReadWriteTransaction) error {
+				return errors.New("after insert hook error")
+			},
+			wantErr: true,
+		},
+		{
 			name:    "insert a new user into the database with hooks",
 			fields:  fields{model: model},
 			mutType: Insert,
@@ -137,6 +155,16 @@ func TestModel_Apply(t *testing.T) {
 					Name:  "Jane Doe",
 					Email: "jane@gmail.com",
 				},
+			},
+		},
+		{
+			name:    "delete a user from the database when is created with before delete hook",
+			fields:  fields{model: model},
+			mutType: Delete,
+			before: func(cxt context.Context, m *Model[*user.User], txn *spanner.ReadWriteTransaction) error {
+				return txn.BufferWrite([]*spanner.Mutation{
+					m.Insert(cxt),
+				})
 			},
 		},
 	}
