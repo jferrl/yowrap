@@ -11,9 +11,7 @@ Lightweight Go package designed to effortlessly wrap the [Yo](https://github.com
 
 [Yo](https://github.com/cloudspannerecosystem/yo) is a command-line tool that generates Go code from SQL DDL files. The generated code is used to interact with Google Cloud Spanner databases, representing the table and a set of methods to interact with the table.
 
-Yo is a great tool to generate the boilerplate code needed to interact with a Google Cloud Spanner database. However, the generated code is not intended to be modified by the user, as it is overwritten every time the `yo` tool is executed. This package provides a way to extend a model with custom methods, without modifying the generated code.
-
-The main idea of this pkg is extending the `yo` generated code functionality in order to create a more capable model.
+Yo is a great tool to generate the boilerplate code needed to interact with a Google Cloud Spanner database. However, the generated code is not intended to be modified by the user, as it is overwritten every time the `yo` tool is executed. This pkg is designed to extend the generated code functionality creating a more capable model.
 
 This package is designed to be used in conjunction with the `yo` tool, not as a replacement.
 
