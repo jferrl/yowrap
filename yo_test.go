@@ -43,6 +43,11 @@ func TestModel_Insert(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			m := NewModel(tt.fields.model)
 
+			_, ok := m.Model().(*user.User)
+			if !ok {
+				t.Fatal("unable to type assert to *user.User")
+			}
+
 			if got := m.Insert(ctx) != nil; !got {
 				t.Errorf("Model.Insert() = %v, want non-nil", got)
 			}
@@ -130,7 +135,7 @@ func TestModel_Apply(t *testing.T) {
 			mutType: Insert,
 			before: func(_ context.Context, m *Model[*user.User], _ *spanner.ReadWriteTransaction) error {
 				// type assertion to access the embedded model
-				u, ok := m.Yo.(*user.User)
+				u, ok := m.Yoable.(*user.User)
 				if !ok {
 					return errors.New("unable to type assert to *user.User")
 				}
@@ -140,7 +145,7 @@ func TestModel_Apply(t *testing.T) {
 			},
 			after: func(ctx context.Context, m *Model[*user.User], rwt *spanner.ReadWriteTransaction) error {
 				// type assertion to access the embedded model
-				u, ok := m.Yo.(*user.User)
+				u, ok := m.Yoable.(*user.User)
 				if !ok {
 					return errors.New("unable to type assert to *user.User")
 				}

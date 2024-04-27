@@ -12,8 +12,8 @@ import (
 // ErrNoClient is returned when the spanner client is not set.
 var ErrNoClient = errors.New("no spanner client")
 
-// Yo is the common interface for the generated model.
-type Yo interface {
+// Yoable is the common interface for the generated model.
+type Yoable[Y any] interface {
 	Insert(ctx context.Context) *spanner.Mutation
 	Update(ctx context.Context) *spanner.Mutation
 	InsertOrUpdate(ctx context.Context) *spanner.Mutation
@@ -21,10 +21,10 @@ type Yo interface {
 }
 
 // Opt is a function that modifies a Model.
-type Opt[T Yo] func(*Model[T])
+type Opt[T Yoable[T]] func(*Model[T])
 
 // WithSpannerClientOption returns an Opt that sets the spanner client.
-func WithSpannerClientOption[T Yo](c spanner.Client) Opt[T] {
+func WithSpannerClientOption[T Yoable[T]](c spanner.Client) Opt[T] {
 	return func(m *Model[T]) {
 		m.Client = c
 	}
@@ -32,18 +32,18 @@ func WithSpannerClientOption[T Yo](c spanner.Client) Opt[T] {
 
 // Model is a struct that embeds the generated model and implements the
 // Yo interface.
-type Model[T Yo] struct {
-	Yo
+type Model[T Yoable[T]] struct {
+	Yoable[T]
 	spanner.Client
 
 	hooks map[Hook]HookFunc[T]
 }
 
 // NewModel returns a new wrapped yo model.
-func NewModel[T Yo](m T, opts ...Opt[T]) *Model[T] {
+func NewModel[T Yoable[T]](m T, opts ...Opt[T]) *Model[T] {
 	mo := &Model[T]{
-		Yo:    m,
-		hooks: make(map[Hook]HookFunc[T]),
+		Yoable: m,
+		hooks:  make(map[Hook]HookFunc[T]),
 	}
 	for _, opt := range opts {
 		opt(mo)
@@ -55,6 +55,11 @@ func NewModel[T Yo](m T, opts ...Opt[T]) *Model[T] {
 // On registers a hook function to be executed during a transaction.
 func (m *Model[T]) On(h Hook, f HookFunc[T]) {
 	m.hooks[h] = f
+}
+
+// Model returns the embedded model.
+func (m *Model[T]) Model() Yoable[T] {
+	return m.Yoable
 }
 
 // Apply executes a kind of mutation against the database.

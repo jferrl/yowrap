@@ -33,4 +33,4 @@ const (
 // This funcions are used for create hooks that are executed before or after.
 // This hooks are able to modify the model before the transaction is executed or
 // create some new stuff during the ongoin transaction.
-type HookFunc[T Yo] func(context.Context, *Model[T], *spanner.ReadWriteTransaction) error
+type HookFunc[T Yoable[T]] func(context.Context, *Model[T], *spanner.ReadWriteTransaction) error
