@@ -61,8 +61,6 @@ func main() {
 
     mut := user.Insert(ctx)
 
-    
-
     _, err = spannerClient.Apply(ctx, []*spanner.Mutation{mut})
     if err != nil {
         log.Fatalf("Failed to apply the mutation: %v", err)
