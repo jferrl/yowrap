@@ -12,9 +12,8 @@ import (
 // ErrNoClient is returned when the spanner client is not set.
 var ErrNoClient = errors.New("no spanner client")
 
-// YoModel is the interface that wraps the basic methods of the Yo
-// generated model.
-type YoModel interface {
+// Yo is the common interface for the generated model.
+type Yo interface {
 	Insert(ctx context.Context) *spanner.Mutation
 	Update(ctx context.Context) *spanner.Mutation
 	InsertOrUpdate(ctx context.Context) *spanner.Mutation
@@ -22,10 +21,10 @@ type YoModel interface {
 }
 
 // Opt is a function that modifies a Model.
-type Opt[T YoModel] func(*Model[T])
+type Opt[T Yo] func(*Model[T])
 
 // WithSpannerClientOption returns an Opt that sets the spanner client.
-func WithSpannerClientOption[T YoModel](c spanner.Client) Opt[T] {
+func WithSpannerClientOption[T Yo](c spanner.Client) Opt[T] {
 	return func(m *Model[T]) {
 		m.Client = c
 	}
@@ -33,18 +32,18 @@ func WithSpannerClientOption[T YoModel](c spanner.Client) Opt[T] {
 
 // Model is a struct that embeds the generated model and implements the
 // YoModel interface.
-type Model[T YoModel] struct {
-	YoModel
+type Model[T Yo] struct {
+	Yo
 	spanner.Client
 
-	hooks map[Hook][]HookFunc
+	hooks map[Hook]HookFunc[T]
 }
 
 // NewModel returns a new wrapped yo model.
-func NewModel[T YoModel](m T, opts ...Opt[T]) *Model[T] {
+func NewModel[T Yo](m T, opts ...Opt[T]) *Model[T] {
 	mo := &Model[T]{
-		YoModel: m,
-		hooks:   make(map[Hook][]HookFunc),
+		Yo:    m,
+		hooks: make(map[Hook]HookFunc[T]),
 	}
 	for _, opt := range opts {
 		opt(mo)
@@ -54,40 +53,45 @@ func NewModel[T YoModel](m T, opts ...Opt[T]) *Model[T] {
 }
 
 // On registers an action to be executed before or after a method.
-func (m *Model[T]) On(h Hook, f HookFunc) {
-	m.hooks[h] = append(m.hooks[h], f)
+func (m *Model[T]) On(h Hook, f HookFunc[T]) {
+	m.hooks[h] = f
 }
 
-// ApplyInsert inserts the model and applies the mutation.
-func (m *Model[T]) ApplyInsert(ctx context.Context) (time.Time, error) {
-	return m.readWriteTxn(ctx, Insert)
-}
-
-// ApplyUpdate updates the model and applies the mutation.
-func (m *Model[T]) ApplyUpdate(ctx context.Context) (time.Time, error) {
-	return m.readWriteTxn(ctx, Update)
-}
-
-// ApplyInsertOrUpdate inserts or updates the model and applies the mutation.
-func (m *Model[T]) ApplyInsertOrUpdate(ctx context.Context) (time.Time, error) {
-	return m.readWriteTxn(ctx, InsertOrUpdate)
-}
-
-// ApplyDelete deletes the model and applies the mutation.
-func (m *Model[T]) ApplyDelete(ctx context.Context) (time.Time, error) {
-	return m.readWriteTxn(ctx, Delete)
-}
-
-func (m *Model[T]) readWriteTxn(ctx context.Context, h Hook) (time.Time, error) {
+// Apply executes the mutation against the database.
+func (m *Model[T]) Apply(ctx context.Context, mtype Mutation) (time.Time, error) {
 	return m.Client.ReadWriteTransaction(ctx, func(ctx context.Context, rwt *spanner.ReadWriteTransaction) error {
-		muts := []*spanner.Mutation{m.Insert(ctx)}
+		before, after := mtype.Hooks()
 
-		if actions, ok := m.hooks[h]; ok {
-			for _, f := range actions {
-				muts = append(muts, f(ctx)...)
+		if f, ok := m.hooks[before]; ok {
+			if err := f(ctx, m, rwt); err != nil {
+				return err
 			}
 		}
 
-		return rwt.BufferWrite(muts)
+		var mut *spanner.Mutation
+		switch mtype {
+		case Insert:
+			mut = m.Insert(ctx)
+		case Update:
+			mut = m.Update(ctx)
+		case InsertOrUpdate:
+			mut = m.InsertOrUpdate(ctx)
+		case Delete:
+			mut = m.Delete(ctx)
+		default:
+			return errors.New("unknown mutation type")
+		}
+
+		if err := rwt.BufferWrite([]*spanner.Mutation{mut}); err != nil {
+			return err
+		}
+
+		if f, ok := m.hooks[after]; ok {
+			if err := f(ctx, m, rwt); err != nil {
+				return err
+			}
+		}
+
+		return nil
 	})
 }

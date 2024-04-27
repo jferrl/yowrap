@@ -2,6 +2,7 @@ package yowrap
 
 import (
 	"context"
+	"errors"
 	"os"
 	"sort"
 	"testing"
@@ -49,7 +50,7 @@ func TestModel_Insert(t *testing.T) {
 	}
 }
 
-func TestModel_ApplyInsert(t *testing.T) {
+func TestModel_Apply(t *testing.T) {
 	ctx := context.Background()
 
 	model := &user.User{
@@ -66,13 +67,21 @@ func TestModel_ApplyInsert(t *testing.T) {
 	tests := []struct {
 		name    string
 		fields  fields
-		hooks   []HookFunc
+		mutType Mutation
+		before  HookFunc[*user.User]
+		after   HookFunc[*user.User]
 		wantErr bool
 		want    []*user.User
 	}{
 		{
-			name:   "insert a new user into the database",
-			fields: fields{model: model},
+			name:    "unknown mutation returns an error",
+			fields:  fields{model: model},
+			wantErr: true,
+		},
+		{
+			name:    "insert a new user into the database",
+			fields:  fields{model: model},
+			mutType: Insert,
 			want: []*user.User{
 				{
 					Name:  "John Doe",
@@ -81,33 +90,52 @@ func TestModel_ApplyInsert(t *testing.T) {
 			},
 		},
 		{
-			name: "insert a new user into the database with a hook",
-			fields: fields{
-				model: model,
-			},
-			hooks: []HookFunc{
-				func(ctx context.Context) []*spanner.Mutation {
-					user := &user.User{
-						ID:        uuid.NewString(),
-						Name:      "Jane Doe",
-						Email:     "jane.doe@email.com",
-						CreatedAt: spanner.CommitTimestamp,
-						UpdatedAt: spanner.CommitTimestamp,
-					}
-
-					return []*spanner.Mutation{
-						user.Insert(ctx),
-					}
+			name:    "insert or update user into the database",
+			fields:  fields{model: model},
+			mutType: InsertOrUpdate,
+			want: []*user.User{
+				{
+					Name:  "John Doe",
+					Email: "jdoe@email.com",
 				},
+			},
+		},
+		{
+			name:    "update a non-existent user in the database",
+			fields:  fields{model: model},
+			mutType: Update,
+			wantErr: true,
+		},
+		{
+			name:    "insert a new user into the database with hooks",
+			fields:  fields{model: model},
+			mutType: Insert,
+			before: func(_ context.Context, m *Model[*user.User], _ *spanner.ReadWriteTransaction) error {
+				// type assertion to access the embedded model
+				u, ok := m.Yo.(*user.User)
+				if !ok {
+					return errors.New("unable to type assert to *user.User")
+				}
+
+				u.Name = "Jane Doe"
+				return nil
+			},
+			after: func(ctx context.Context, m *Model[*user.User], rwt *spanner.ReadWriteTransaction) error {
+				// type assertion to access the embedded model
+				u, ok := m.Yo.(*user.User)
+				if !ok {
+					return errors.New("unable to type assert to *user.User")
+				}
+				u.Email = "jane@gmail.com"
+
+				return rwt.BufferWrite([]*spanner.Mutation{
+					m.Update(ctx),
+				})
 			},
 			want: []*user.User{
 				{
 					Name:  "Jane Doe",
-					Email: "jane.doe@email.com",
-				},
-				{
-					Name:  "John Doe",
-					Email: "jdoe@email.com",
+					Email: "jane@gmail.com",
 				},
 			},
 		},
@@ -121,11 +149,15 @@ func TestModel_ApplyInsert(t *testing.T) {
 				WithSpannerClientOption[*user.User](*spannerClient),
 			)
 
-			for _, h := range tt.hooks {
-				m.On(Insert, h)
+			before, after := tt.mutType.Hooks()
+			if tt.before != nil {
+				m.On(before, tt.before)
+			}
+			if tt.after != nil {
+				m.On(after, tt.after)
 			}
 
-			if _, err := m.ApplyInsert(ctx); (err != nil) != tt.wantErr {
+			if _, err := m.Apply(ctx, tt.mutType); (err != nil) != tt.wantErr {
 				t.Errorf("Model.ApplyInsert() error = %v, wantErr %v", err, tt.wantErr)
 			}
 

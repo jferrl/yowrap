@@ -10,15 +10,24 @@ import (
 type Hook int
 
 const (
-	// Insert is executed when the Insert method is called.
-	Insert Hook = iota + 1
-	// Update is executed when the Update method is called.
-	Update
-	// InsertOrUpdate is executed when the InsertOrUpdate method is called.
-	InsertOrUpdate
-	// Delete is executed when the Delete method is called.
-	Delete
+	// AfterInsert is executed when the Insert txn is called.
+	AfterInsert Hook = iota + 1
+	// AfterUpdate is executed when the Update txn is called.
+	AfterUpdate
+	// AfterInsertOrUpdate is executed when the InsertOrUpdate txn is called.
+	AfterInsertOrUpdate
+	// AfterDelete is executed when the Delete txn is called.
+	AfterDelete
+	// BeforeInsert is executed before the Insert txn is called.
+	BeforeInsert
+	// BeforeUpdate is executed before the Update txn is called.
+	BeforeUpdate
+	// BeforeInsertOrUpdate is executed before the InsertOrUpdate txn is called.
+	BeforeInsertOrUpdate
+	// BeforeDelete is executed before the Delete txn is called.
+	BeforeDelete
 )
 
-// HookFunc is a trigger function associated with a kind of mutation.
-type HookFunc func(context.Context) []*spanner.Mutation
+// HookFunc defines a function that can be executed during a mutation.
+// Is invoked with the model that is being mutated.
+type HookFunc[T Yo] func(context.Context, *Model[T], *spanner.ReadWriteTransaction) error
