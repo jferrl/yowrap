@@ -80,16 +80,14 @@ func (m *Model[T]) ApplyDelete(ctx context.Context) (time.Time, error) {
 
 func (m *Model[T]) readWriteTxn(ctx context.Context, h Hook) (time.Time, error) {
 	return m.Client.ReadWriteTransaction(ctx, func(ctx context.Context, rwt *spanner.ReadWriteTransaction) error {
-		var mutations []*spanner.Mutation
+		muts := []*spanner.Mutation{m.Insert(ctx)}
 
 		if actions, ok := m.hooks[h]; ok {
 			for _, f := range actions {
-				mutations = append(mutations, f(ctx)...)
+				muts = append(muts, f(ctx)...)
 			}
 		}
 
-		mutations = append(mutations, m.Insert(ctx))
-
-		return rwt.BufferWrite(mutations)
+		return rwt.BufferWrite(muts)
 	})
 }

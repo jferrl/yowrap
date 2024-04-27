@@ -6,7 +6,7 @@ import (
 	"cloud.google.com/go/spanner"
 )
 
-// Hook defines an action that can be executed before or after a method.
+// Hook defines an action that can be executed during a mutation.
 type Hook int
 
 const (
@@ -21,5 +21,4 @@ const (
 )
 
 // HookFunc is a trigger function associated with a kind of mutation.
-// It executed to generate the mutations to be applied.
 type HookFunc func(context.Context) []*spanner.Mutation
